@@ -25,11 +25,11 @@ const platformRules = {
     format: `{ "caption": "..." }`
   },
   instagram_stories: {
-    prompt: "キャプション短文を10〜60文字で生成し、その文章の末尾に必ずハッシュタグを3個付けてください。絵文字は1〜3個使用してください。また、それとは別に、「フレーム1: (字幕内容)」「フレーム2: (字幕内容)」という形式で3〜5フレームの構成案も生成してください。",
+    prompt: "キャプション短文を10〜60文字で生成し、その文章の末尾に必ずハッシュタグを3個付けてください。絵文字は1〜3個使用してください。また、それとは別に、「構成案」として文字列を生成してください。構成案は「フレーム1: ...」「フレーム2: ...」という形式で、各フレームを改行で区切って記述してください。",
     format: `{ "caption": "...", "structure": "..." }`
   },
   instagram_feed: {
-    prompt: "キャプション短文を125〜150文字で生成し、末尾にハッシュタグを3個付けてください。絵文字は3〜5個使用してください。また、それとは別に、5〜6枚のカルーセル投稿を想定した各画像の文案を、文字列の配列として生成してください。",
+    prompt: "キャプション短文を125〜150文字で生成し、末尾にハッシュタグを3個付けてください。絵文字は3〜5個使用してください。また、それとは別に、「構成案」として5〜6枚のカルーセル投稿用の文章を、文字列の配列（Array of strings）で生成してください。",
     format: `{ "caption": "...", "structure": ["ページ1の文章", "ページ2の文章", ...] }`
   },
   facebook: {
@@ -109,7 +109,7 @@ app.get("/", (req, res) => {
 // SNS投稿を生成するエンドポイント
 app.post("/generate-sns", async (req, res) => {
   const userInput = req.body;
-  const requestedPlatform = userInput.platform || 'all';
+  const requestedPlatform = userInput.platform;
 
   if (!userInput.company || !userInput.theme) {
     return res.status(400).json({ error: "会社名と投稿テーマは必須です。" });
@@ -118,15 +118,7 @@ app.post("/generate-sns", async (req, res) => {
   try {
     let finalResponse = {};
 
-    if (requestedPlatform === 'all') {
-      const generationPromises = Object.keys(platformRules).map(platform => 
-        generateSinglePlatformContent(platform, userInput)
-      );
-      const results = await Promise.all(generationPromises);
-      Object.keys(platformRules).forEach((platform, index) => {
-        finalResponse[platform] = results[index];
-      });
-    } else if (platformRules[requestedPlatform]) {
+    if (platformRules[requestedPlatform]) {
       const result = await generateSinglePlatformContent(requestedPlatform, userInput);
       finalResponse[requestedPlatform] = result;
     } else {
