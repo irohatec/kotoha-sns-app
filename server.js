@@ -21,16 +21,16 @@ const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 // --- 各SNSのルールを定義 ---
 const platformRules = {
   instagram_reel: {
-    prompt: "キャプションを60〜100文字、ハッシュタグを5個、絵文字を1〜3個使用して生成してください。",
+    prompt: "キャプションを60〜100文字で生成し、末尾にハッシュタグを5個付けてください。絵文字は1〜3個使用してください。",
     format: `{ "caption": "..." }`
   },
   instagram_stories: {
-    prompt: "キャプション短文を10〜60文字、ハッシュタグを3個、絵文字を1〜3個で生成してください。また、箇条書きで3〜5フレームの構成案も生成してください。",
+    prompt: "キャプション短文を10〜60文字で生成し、その文章の末尾に必ずハッシュタグを3個付けてください。絵文字は1〜3個使用してください。また、それとは別に、「フレーム1: (字幕内容)」「フレーム2: (字幕内容)」という形式で3〜5フレームの構成案も生成してください。",
     format: `{ "caption": "...", "structure": "..." }`
   },
   instagram_feed: {
-    prompt: "キャプション短文を125〜150文字、ハッシュタグを3個、絵文字を3〜5個で生成してください。また、5〜6枚のカルーセル投稿を想定した各画像の文案も生成してください。",
-    format: `{ "caption": "...", "structure": "..." }`
+    prompt: "キャプション短文を125〜150文字で生成し、末尾にハッシュタグを3個付けてください。絵文字は3〜5個使用してください。また、それとは別に、5〜6枚のカルーセル投稿を想定した各画像の文案を、文字列の配列として生成してください。",
+    format: `{ "caption": "...", "structure": ["ページ1の文章", "ページ2の文章", ...] }`
   },
   facebook: {
     prompt: "キャプションを150〜200文字、ハッシュタグを3個、絵文字を5〜7個使用して、投稿が華やかになるように生成してください。",
@@ -109,7 +109,7 @@ app.get("/", (req, res) => {
 // SNS投稿を生成するエンドポイント
 app.post("/generate-sns", async (req, res) => {
   const userInput = req.body;
-  const requestedPlatform = userInput.platform || 'all'; // デフォルトは 'all'
+  const requestedPlatform = userInput.platform || 'all';
 
   if (!userInput.company || !userInput.theme) {
     return res.status(400).json({ error: "会社名と投稿テーマは必須です。" });
@@ -118,9 +118,7 @@ app.post("/generate-sns", async (req, res) => {
   try {
     let finalResponse = {};
 
-    // ★★★ 選択されたプラットフォームに応じて処理を分岐 ★★★
     if (requestedPlatform === 'all') {
-      // "すべて生成する" が選択された場合 (並列処理)
       const generationPromises = Object.keys(platformRules).map(platform => 
         generateSinglePlatformContent(platform, userInput)
       );
@@ -129,14 +127,12 @@ app.post("/generate-sns", async (req, res) => {
         finalResponse[platform] = results[index];
       });
     } else if (platformRules[requestedPlatform]) {
-      // 特定のSNSが選択された場合
       const result = await generateSinglePlatformContent(requestedPlatform, userInput);
       finalResponse[requestedPlatform] = result;
     } else {
       return res.status(400).json({ error: "無効なプラットフォームが指定されました。" });
     }
 
-    // URLのプレースホルダーを置換
     if (userInput.url) {
       for (const key in finalResponse) {
         const item = finalResponse[key];
